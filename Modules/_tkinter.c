@@ -3684,18 +3684,28 @@ EventHook(void)
         else if (type == FILE_TYPE_DISK) {
             break;
         }
+#else
+        if (self->threaded) {
+            /* Allow other Python threads to run. */
+            ENTER_TCL
+            result = Tcl_DoOneEvent(0);
+            LEAVE_TCL
+        }
+        else
 #endif
-        Py_BEGIN_ALLOW_THREADS
-        if(tcl_lock)PyThread_acquire_lock(tcl_lock, 1);
-        tcl_tstate = event_tstate;
+        {
+            Py_BEGIN_ALLOW_THREADS
+            if(tcl_lock)PyThread_acquire_lock(tcl_lock, 1);
+            tcl_tstate = event_tstate;
 
-        result = Tcl_DoOneEvent(TCL_DONT_WAIT);
+            result = Tcl_DoOneEvent(TCL_DONT_WAIT);
 
-        tcl_tstate = NULL;
-        if(tcl_lock)PyThread_release_lock(tcl_lock);
-        if (result == 0)
-            Sleep(Tkinter_busywaitinterval);
-        Py_END_ALLOW_THREADS
+            tcl_tstate = NULL;
+            if(tcl_lock)PyThread_release_lock(tcl_lock);
+            if (result == 0)
+                Sleep(Tkinter_busywaitinterval);
+            Py_END_ALLOW_THREADS
+        }
 
         /* Report an exception raised in a callback, but keep pumping events
            instead of returning to the prompt: without readline there is no
